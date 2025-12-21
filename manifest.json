@@ -16,7 +16,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["inject.js"],
+      "resources": ["inject.js", "inject_v2.js"],
       "matches": ["*://web.telegram.org/*"]
     }
   ],
