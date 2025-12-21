@@ -102,6 +102,8 @@
           throw new Error('Could not get actions or global state');
         }
         
+        console.log('[Disappearing Photos] Global state keys:', Object.keys(global));
+        
         // Get current chat info from the first tab
         const firstTabId = Object.keys(global.byTabId || {})[0];
         if (!firstTabId) {
@@ -109,6 +111,9 @@
         }
 
         const firstTab = global.byTabId[firstTabId];
+        console.log('[Disappearing Photos] First tab keys:', Object.keys(firstTab || {}));
+        console.log('[Disappearing Photos] Message lists:', firstTab?.messageLists);
+        
         const messageLists = firstTab?.messageLists;
         
         if (!messageLists) {
@@ -117,16 +122,22 @@
 
         // Get the first available message list
         const messageListKeys = Object.keys(messageLists);
+        console.log('[Disappearing Photos] Available message list keys:', messageListKeys);
+        
         if (messageListKeys.length === 0) {
           throw new Error('No active message lists. Please open a chat first.');
         }
 
         const currentMessageList = messageLists[messageListKeys[0]];
+        console.log('[Disappearing Photos] Current message list:', currentMessageList);
+        
         const { chatId, threadId, type } = currentMessageList;
         
         if (!chatId) {
           throw new Error('No chat ID found');
         }
+        
+        console.log('[Disappearing Photos] Using chat:', { chatId, threadId, type });
         
         const blobUrl = URL.createObjectURL(file);
         
