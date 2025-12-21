@@ -1,6 +1,7 @@
 {
-  "name": "AI Stealth: Take Home Challenge",
+  "name": "Telegram Disappearing Photos",
   "version": "1.0",
+  "description": "Send disappearing photos on Telegram Web",
   "manifest_version": 3,
   "background": {
     "service_worker": "background.js",
@@ -8,11 +9,17 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://web.telegram.org/a*"],
+      "matches": ["*://web.telegram.org/*"],
       "js": ["content.js"],
       "run_at": "document_idle"
     }
   ],
+  "web_accessible_resources": [
+    {
+      "resources": ["inject.js"],
+      "matches": ["*://web.telegram.org/*"]
+    }
+  ],
   "permissions": [],
-  "host_permissions": ["*://web.telegram.org/a*"]
+  "host_permissions": ["*://web.telegram.org/*"]
 }
