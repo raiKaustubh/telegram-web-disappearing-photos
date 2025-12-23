@@ -89,7 +89,7 @@
     }
     
     // Create the helper function to send disappearing photos
-    window.sendDisappearingPhoto = async function(file, ttlSeconds = 10) {
+    window.sendDisappearingPhoto = async function(blob, ttlSeconds = 10, mimeType = 'image/png') {
       try {
         if (!window.__TG_GET_ACTIONS__) {
           throw new Error('Telegram functions not available. Extension not initialized properly.');
@@ -139,17 +139,25 @@
         
         console.log('[Disappearing Photos] Using chat:', { chatId, threadId, type });
         
-        const blobUrl = URL.createObjectURL(file);
+        // Handle blob - create blob URL and get dimensions
+        const blobUrl = URL.createObjectURL(blob);
+        
+        // Get image dimensions from blob
+        const img = new Image();
+        const dimensions = await new Promise((resolve) => {
+          img.onload = () => resolve({ width: img.width, height: img.height });
+          img.onerror = () => resolve({ width: 1920, height: 1080 }); // fallback
+          img.src = blobUrl;
+        });
+        
+        console.log('[Disappearing Photos] Image dimensions:', dimensions);
         
         const attachment = {
-          filename: file.name,
+          filename: 'photo',
           blobUrl: blobUrl,
-          mimeType: file.type,
+          mimeType: mimeType,  // Use GIF mime type to force document path with ttlSeconds
           ttlSeconds: ttlSeconds,
-          quick: {
-            width: 1920,
-            height: 1080
-          }
+          quick: dimensions
         };
         
         console.log('[Disappearing Photos] Sending with ttlSeconds:', ttlSeconds);

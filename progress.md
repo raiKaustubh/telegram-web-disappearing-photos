@@ -1,139 +1,174 @@
-# Progress Tracker: Telegram Disappearing Photos Challenge
+# Progress Report: Telegram Disappearing Photos Extension
 
-## Goal
-Send disappearing photos programmatically on Telegram Web (web.telegram.org/a) using a Chrome extension.
+## ✅ Completed Tasks
 
----
+### 1. Chrome Extension Setup
+- ✅ Created `manifest.json` with proper permissions and configuration
+- ✅ Created `content.js` to inject scripts into Telegram Web
+- ✅ Created `background.js` service worker
+- ✅ Configured `web_accessible_resources` to bypass CSP restrictions
 
-## ✅ Completed
+### 2. Reverse Engineering Telegram Web
+- ✅ Found webpack module system in Telegram's bundled code
+- ✅ Located the `require` function to access internal modules
+- ✅ Discovered module 37932 exports `getActions`, `getGlobal`, `setGlobal` via `cl()` function
+- ✅ Successfully exposed these functions on `window` object as:
+  - `window.__TG_GET_ACTIONS__()`
+  - `window.__TG_GET_GLOBAL__()`
+  - `window.__TG_SET_GLOBAL__()`
 
-### 1. Understanding the Problem
-- [x] Read and understood the challenge requirements
-- [x] Identified that Telegram Web has the functionality but it's hidden from UI
-- [x] Confirmed we need to work with version A (web.telegram.org/a)
+### 3. Understanding Telegram's Message Sending Flow
+- ✅ Identified `sendMessage` action as the high-level entry point
+- ✅ Found `uploadMedia` function that handles attachments
+- ✅ Discovered `ttlSeconds` parameter in `ApiAttachment` interface
+- ✅ Located two media upload paths:
+  - `InputMediaUploadedPhoto` (for photos) - **does NOT support `ttlSeconds`**
+  - `InputMediaUploadedDocument` (for documents) - **supports `ttlSeconds`**
 
-### 2. Research & Discovery
-- [x] Found `messages.js` - contains `uploadMedia()` and `sendApiMessage()`
-- [x] Found `composer.tsx` - UI component that calls send functions
-- [x] Found `actions_messages.ts` - action handlers that wrap API calls
-- [x] **DISCOVERED THE KEY PARAMETER:** `ttlSeconds` in attachment object (line 921 in messages.js)
+### 4. Accessing Current Chat Information
+- ✅ Fixed path to get current chat: `global.byTabId[tabId].messageLists`
+- ✅ Successfully extract `chatId`, `threadId`, and `type` from active chat
 
-### 3. Understanding the Flow
+### 5. Sending Photos Programmatically
+- ✅ Created `window.sendDisappearingPhoto(file, ttlSeconds)` function
+- ✅ Successfully sends photos via `actions.sendMessage()`
+- ✅ Photos appear in chat and on mobile devices
+
+### 6. Debugging and Analysis
+- ✅ Intercepted `sendMessage` to analyze attachment structure
+- ✅ Compared spoiler photos vs regular photos
+- ✅ Identified that spoiler photos work: `shouldSendAsSpoiler: true` + `quick` dimensions
+- ✅ Searched for view-once related code in webpack modules
+- ✅ Found that Telegram Web UI only supports view-once for **voice messages**, not photos
+
+## ❌ Current Blocker
+
+### The `ttlSeconds` Problem
+
+**Issue**: Photos sent with `ttlSeconds` parameter do NOT disappear.
+
+**Root Cause**: In `messages.js:946-952`, the code checks:
+```javascript
+if (!shouldSendAsFile) {
+  if (quick) {
+    if (SUPPORTED_PHOTO_CONTENT_TYPES.has(mimeType) && mimeType !== GIF_MIME_TYPE) {
+      return new GramJs.InputMediaUploadedPhoto({
+        file: inputFile,
+        spoiler: shouldSendAsSpoiler,
+        // ❌ NO ttlSeconds parameter!
+      });
+    }
+  }
+}
 ```
-UI (composer.tsx)
-  ↓ calls
-getActions().sendMessage()
-  ↓ calls
-callApi('sendMessage', params)
-  ↓ calls
-sendApiMessage() [messages.js]
-  ↓ calls
-uploadMedia() [messages.js line 919]
-  ↓ reads
-attachment.ttlSeconds [line 921]
-  ↓ passes to
-GramJs.InputMediaUploadedDocument({ ttlSeconds }) [line 995]
-  ↓
-Sent as disappearing photo!
+
+This returns early, never reaching the `InputMediaUploadedDocument` path which has `ttlSeconds` support (line 988-996).
+
+**What We've Tried**:
+1. ❌ Setting `shouldSendAsFile: true` → Sends as file icon (not a viewable photo)
+2. ❌ Removing `quick` property → Unknown result (needs testing)
+3. ❌ Changing mime type to `image/gif` → User reverted this change
+
+## 🔍 Key Findings
+
+### Attachment Properties for Different Media Types
+
+**Regular Photo**:
+```javascript
+{
+  filename: 'photo.jpg',
+  blobUrl: 'blob:...',
+  mimeType: 'image/jpeg',
+  quick: { width: 2062, height: 3664 },
+  shouldSendAsFile: undefined,
+  shouldSendAsSpoiler: false,
+  ttlSeconds: undefined
+}
 ```
 
-### 4. Key Findings
-- [x] `ttlSeconds` is the parameter that makes photos disappear
-- [x] It's set in the attachment object: `{ filename, blobUrl, mimeType, ttlSeconds: 10 }`
-- [x] Voice messages already use this (line 1265-1271 in composer.tsx)
-- [x] The value `ONE_TIME_MEDIA_TTL_SECONDS` is used for "view once" media
+**Spoiler Photo** (works on mobile):
+```javascript
+{
+  filename: 'photo.jpg',
+  blobUrl: 'blob:...',
+  mimeType: 'image/jpeg',
+  quick: { width: 2062, height: 3664 },
+  shouldSendAsFile: undefined,
+  shouldSendAsSpoiler: true,  // ✅ This works!
+  ttlSeconds: undefined
+}
+```
 
----
+**Our Disappearing Photo Attempt** (doesn't work):
+```javascript
+{
+  filename: 'photo.jpg',
+  blobUrl: 'blob:...',
+  mimeType: 'image/jpeg',
+  quick: { width: 1920, height: 1080 },
+  shouldSendAsFile: undefined,
+  shouldSendAsSpoiler: false,
+  ttlSeconds: 10  // ❌ Gets ignored!
+}
+```
 
-## ✅ Completed (Continued)
+### Why Spoilers Work But TTL Doesn't
 
-### 5. Accessing Telegram's Functions
-- [x] Searched for `window.getActions` - not exposed
-- [x] Searched for `window.callApi` - not exposed
-- [x] Tried accessing webpack modules - functions not in exports
-- [x] Found the functions in main bundle (main_x.js line 12495-12497)
-- [x] Created injection method to expose functions via webpack module cache
+- `InputMediaUploadedPhoto` **has** a `spoiler` parameter → Spoilers work
+- `InputMediaUploadedPhoto` **does NOT have** a `ttlSeconds` parameter → TTL ignored
+- `InputMediaUploadedDocument` **has both** `spoiler` and `ttlSeconds` parameters
 
-### 6. Implementation
-- [x] Write Chrome extension code:
-  - [x] Created `inject.js` - Accesses webpack modules and exposes functions
-  - [x] Updated `content.js` - Injects script and adds UI button
-  - [x] Updated `manifest.json` - Added web_accessible_resources
-  - [x] Updated `background.js` - Added installation logging
-  - [x] Created `window.sendDisappearingPhoto()` helper function
-  - [x] Built attachment object with `ttlSeconds: 10`
-  - [x] Added beautiful floating UI button
-  - [x] Added file picker functionality
-  - [x] Added success/error notifications
+## 🎯 Next Steps to Try
 
----
+### Option 1: Force Document Path Without File Icon
+- Remove `quick` property entirely
+- Keep `mimeType: 'image/jpeg'`
+- Add `ttlSeconds: 10`
+- **Risk**: Might send as file icon or not display properly
 
-## 🔄 In Progress
+### Option 2: Use GIF Mime Type Hack
+- Set `mimeType: 'image/gif'` (forces document path per line 948)
+- Keep `quick` property for dimensions
+- Add `ttlSeconds: 10`
+- **Risk**: Might display as GIF or not work at all
 
-### 7. Testing
-- [ ] Load extension in Chrome
-- [ ] Test sending a disappearing photo
-- [ ] Verify it appears as "view once" on mobile
-- [ ] Verify web shows "This message is not supported on web version"
-- [ ] Test with different chats (personal, groups)
-- [ ] Test error handling
+### Option 3: Check for Special TTL Value
+- Find the actual value of `ONE_TIME_MEDIA_TTL_SECONDS` constant
+- Try using that specific value instead of `10`
+- **Theory**: Maybe there's a special value like `0x7FFFFFFF` for "view once"
 
-### 8. Cleanup & Submission
-- [ ] Remove debug/context files (messages.js, composer.tsx, etc.)
-- [ ] Test the extension works from fresh install
-- [ ] Record demo video
-- [ ] Upload to Google Drive (as folder, not zip)
-- [ ] Submit
+### Option 4: Intercept and Modify uploadMedia
+- Hook into the `uploadMedia` function itself
+- Modify the logic to check for `ttlSeconds` before returning `InputMediaUploadedPhoto`
+- **Complexity**: High, requires deeper webpack module manipulation
 
----
+### Option 5: Accept Limitation
+- Document that Telegram Web's API doesn't properly support disappearing photos
+- Only support disappearing voice messages (which work via `isViewOnceEnabled`)
+- **Note**: This might be the reality - the feature may not be fully implemented in Telegram Web
 
-## 🎯 Next Steps
+## 📝 Technical Notes
 
-### Immediate (Access Functions)
-1. **Option A:** Continue searching webpack modules with different patterns
-2. **Option B:** Intercept/hook into existing send flow (monkey patch)
-3. **Option C:** Directly manipulate the DOM to trigger existing functionality
-4. **Option D:** Find and call lower-level API functions (GramJs directly)
+- Telegram Web version: web.telegram.org/a
+- Main bundle: `main_x.js` (31,836 lines)
+- Key module: 37932 (exports `cl()` → `{getActions, getGlobal, setGlobal}`)
+- Webpack chunk: `window.webpackChunktelegram_t`
+- Extension successfully hooks into Telegram runtime ✅
+- Message sending works programmatically ✅
+- TTL parameter is recognized but not applied ❌
 
-### Most Promising Approach
-Try to find where `callApi` is defined by searching in DevTools Sources for:
-- `export function callApi`
-- `callApi = function`
-- `api/gramjs` (the import path)
+## 🤔 Open Questions
 
-Or hook into the existing attachment flow by:
-- Monitoring when photos are selected
-- Intercepting the attachment object
-- Adding `ttlSeconds: 10` before it's sent
+1. Does Telegram's official mobile app send disappearing photos differently?
+2. Is there a different API method specifically for disappearing media?
+3. Could we use `messages.sendMedia` directly instead of `sendMessage` action?
+4. Is there a flag or property we're missing that enables TTL for photos?
+5. Does the `previewBlobUrl` property affect how media is sent?
 
----
+## 📚 References
 
-## 📝 Notes
-
-### Important Constants
-- `ONE_TIME_MEDIA_TTL_SECONDS` - likely 10 or similar (from config)
-- TTL values are probably: 10, 30, 60 seconds
-
-### Key Files
-- `messages.js` - API layer (line 919: uploadMedia, line 995: ttlSeconds usage)
-- `composer.tsx` - UI component (line 1265: voice recording with TTL example)
-- `actions_messages.ts` - Action handlers (line 1954: sendMessage function)
-
-### Webpack Info
-- Bundle: `window.webpackChunktelegram_t`
-- 22,978 modules found
-- Functions are not directly exported on module.exports
-
----
-
-## 🚧 Blockers
-
-1. **Cannot access `callApi` or `getActions` from window** - Functions are in webpack module scope
-2. **Content script isolation** - Extension runs in isolated context, can't directly access page's JavaScript
-
-### Potential Solutions
-- Inject script tag into page to run in page context
-- Use `window.postMessage` to communicate between contexts
-- Find the module ID that contains the functions
-- Hook into React/Teact component props
-
+- `context/messages.js:919-997` - `uploadMedia` function
+- `context/composer.tsx:1263-1274` - View-once for voice messages
+- `context/messages.js:948-952` - Photo path (no TTL support)
+- `context/messages.js:988-996` - Document path (has TTL support)
+- `context/composer.tsx:2690` - `canSendOneTimeMedia` condition
