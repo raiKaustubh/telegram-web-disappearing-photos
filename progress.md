@@ -1,174 +1,124 @@
-# Progress Report: Telegram Disappearing Photos Extension
+# Solution: Sending Disappearing Photos on Telegram Web
 
-## ✅ Completed Tasks
+## The Challenge
 
-### 1. Chrome Extension Setup
-- ✅ Created `manifest.json` with proper permissions and configuration
-- ✅ Created `content.js` to inject scripts into Telegram Web
-- ✅ Created `background.js` service worker
-- ✅ Configured `web_accessible_resources` to bypass CSP restrictions
+Telegram mobile allows sending disappearing photos (view once), but Telegram Web doesn't expose this feature in the UI. The goal was to programmatically send disappearing photos using a Chrome extension.
 
-### 2. Reverse Engineering Telegram Web
-- ✅ Found webpack module system in Telegram's bundled code
-- ✅ Located the `require` function to access internal modules
-- ✅ Discovered module 37932 exports `getActions`, `getGlobal`, `setGlobal` via `cl()` function
-- ✅ Successfully exposed these functions on `window` object as:
-  - `window.__TG_GET_ACTIONS__()`
-  - `window.__TG_GET_GLOBAL__()`
-  - `window.__TG_SET_GLOBAL__()`
+## The Discovery
 
-### 3. Understanding Telegram's Message Sending Flow
-- ✅ Identified `sendMessage` action as the high-level entry point
-- ✅ Found `uploadMedia` function that handles attachments
-- ✅ Discovered `ttlSeconds` parameter in `ApiAttachment` interface
-- ✅ Located two media upload paths:
-  - `InputMediaUploadedPhoto` (for photos) - **does NOT support `ttlSeconds`**
-  - `InputMediaUploadedDocument` (for documents) - **supports `ttlSeconds`**
+After reverse engineering Telegram Web's source code, I discovered:
 
-### 4. Accessing Current Chat Information
-- ✅ Fixed path to get current chat: `global.byTabId[tabId].messageLists`
-- ✅ Successfully extract `chatId`, `threadId`, and `type` from active chat
+### 1. The API Supports It!
 
-### 5. Sending Photos Programmatically
-- ✅ Created `window.sendDisappearingPhoto(file, ttlSeconds)` function
-- ✅ Successfully sends photos via `actions.sendMessage()`
-- ✅ Photos appear in chat and on mobile devices
+The Telegram GramJS API **fully supports** `ttlSeconds` for photos:
 
-### 6. Debugging and Analysis
-- ✅ Intercepted `sendMessage` to analyze attachment structure
-- ✅ Compared spoiler photos vs regular photos
-- ✅ Identified that spoiler photos work: `shouldSendAsSpoiler: true` + `quick` dimensions
-- ✅ Searched for view-once related code in webpack modules
-- ✅ Found that Telegram Web UI only supports view-once for **voice messages**, not photos
+```typescript
+// From api.d.ts
+export class InputMediaUploadedPhoto {
+  file: Api.TypeInputFile;
+  spoiler?: true;
+  ttlSeconds?: int;  // ✅ This exists!
+}
 
-## ❌ Current Blocker
-
-### The `ttlSeconds` Problem
-
-**Issue**: Photos sent with `ttlSeconds` parameter do NOT disappear.
-
-**Root Cause**: In `messages.js:946-952`, the code checks:
-```javascript
-if (!shouldSendAsFile) {
-  if (quick) {
-    if (SUPPORTED_PHOTO_CONTENT_TYPES.has(mimeType) && mimeType !== GIF_MIME_TYPE) {
-      return new GramJs.InputMediaUploadedPhoto({
-        file: inputFile,
-        spoiler: shouldSendAsSpoiler,
-        // ❌ NO ttlSeconds parameter!
-      });
-    }
-  }
+export class MessageMediaPhoto {
+  spoiler?: true;
+  photo?: Api.TypePhoto;
+  ttlSeconds?: int;  // ✅ This exists!
 }
 ```
 
-This returns early, never reaching the `InputMediaUploadedDocument` path which has `ttlSeconds` support (line 988-996).
+### 2. Telegram Web Intentionally Blocks It
 
-**What We've Tried**:
-1. ❌ Setting `shouldSendAsFile: true` → Sends as file icon (not a viewable photo)
-2. ❌ Removing `quick` property → Unknown result (needs testing)
-3. ❌ Changing mime type to `image/gif` → User reverted this change
+In `telegram-tt/src/api/gramjs/methods/messages.ts` (lines 946-952):
 
-## 🔍 Key Findings
-
-### Attachment Properties for Different Media Types
-
-**Regular Photo**:
 ```javascript
-{
-  filename: 'photo.jpg',
-  blobUrl: 'blob:...',
-  mimeType: 'image/jpeg',
-  quick: { width: 2062, height: 3664 },
-  shouldSendAsFile: undefined,
-  shouldSendAsSpoiler: false,
-  ttlSeconds: undefined
+if (SUPPORTED_PHOTO_CONTENT_TYPES.has(mimeType) && mimeType !== GIF_MIME_TYPE) {
+  return new GramJs.InputMediaUploadedPhoto({
+    file: inputFile,
+    spoiler: shouldSendAsSpoiler,
+    // ❌ ttlSeconds is NOT passed, even though the attachment has it!
+  });
 }
 ```
 
-**Spoiler Photo** (works on mobile):
+The `uploadMedia` function receives `ttlSeconds` in the attachment parameter but **intentionally doesn't pass it** to `InputMediaUploadedPhoto`.
+
+### 3. The ttlSeconds Values
+
 ```javascript
-{
-  filename: 'photo.jpg',
-  blobUrl: 'blob:...',
-  mimeType: 'image/jpeg',
-  quick: { width: 2062, height: 3664 },
-  shouldSendAsFile: undefined,
-  shouldSendAsSpoiler: true,  // ✅ This works!
-  ttlSeconds: undefined
-}
+// From config.ts
+export const ONE_TIME_MEDIA_TTL_SECONDS = 2147483647;  // 0x7FFFFFFF
 ```
 
-**Our Disappearing Photo Attempt** (doesn't work):
-```javascript
-{
-  filename: 'photo.jpg',
-  blobUrl: 'blob:...',
-  mimeType: 'image/jpeg',
-  quick: { width: 1920, height: 1080 },
-  shouldSendAsFile: undefined,
-  shouldSendAsSpoiler: false,
-  ttlSeconds: 10  // ❌ Gets ignored!
-}
+Telegram supports two types of disappearing photos:
+
+**View Once (no timer):**
+- `ttlSeconds = 2147483647` (0x7FFFFFFF - max int32)
+- Photo disappears after being viewed once
+- No countdown timer shown
+
+**Timed Disappearing (with countdown):**
+- `ttlSeconds = 5, 10, 30, 60, etc.`
+- Photo shows timer badge (e.g., "5s") on mobile
+- Auto-deletes after X seconds while viewing
+- Valid range: 1-60 seconds (from iOS source code)
+
+
+Main Thread:                          Worker Thread:
+-----------                           --------------
+1. actions.sendMessage()              
+   (with ttlSeconds in attachment)
+                    ↓
+2. callApi('sendMessage', params) →   3. onmessage receives params
+   (connector.ts line 205)               (worker.ts line 52)
+                                          ↓
+                                       4. callApi('sendMessage', ...args)
+                                          (worker.ts line 89)
+                                          ↓
+                                       5. sendMessage() in messages.ts
+                                          (line 538)
+                                          ↓
+                                       6. uploadMedia() with ttlSeconds
+                                          (line 919-997)
+                                          ↓
+                                       7. Creates InputMediaUploadedPhoto
+                                          WITHOUT ttlSeconds (line 949-952)
+
+Your Solutions:
+Solution 1: Intercept the GramJS Constructor in the Worker ✅ BEST
+Since the worker loads GramJS, you can intercept the InputMediaUploadedPhoto constructor BEFORE the worker uses it:
+Approach:
+Inject a script that runs BEFORE the worker loads
+Wrap GramJs.InputMediaUploadedPhoto constructor to always add ttlSeconds from a hidden property
+When the worker creates the object at line 949, your wrapper adds ttlSeconds
+
+Solution 2: Monkey-patch the uploadMedia function in the Worker
+Find the webpack module containing uploadMedia in the worker context
+Replace it with a patched version that passes ttlSeconds to InputMediaUploadedPhoto
+
+## Attempted Solutions and Why They Failed
+
+### Attempt 1: Force Document Path with `shouldSendAsFile: true`
+**Approach:** Set `shouldSendAsFile: true` in the attachment to force the code to take the document upload path (line 988) instead of the photo path (line 949), since the document path DOES pass `ttlSeconds`.
+
+**Why it failed:** 
+- The photo was sent as a document/file, not as a photo
+- Telegram treats it differently - doesn't display as a proper disappearing photo
+- The UI shows it as a file attachment rather than an inline photo
+
+### Attempt 2: Patch GramJS Constructor in Main Thread
+**Approach:** Search webpack modules in the main page context for `GramJs.Api.InputMediaUploadedPhoto` and wrap its constructor to inject `ttlSeconds`.
+
+**Why it failed:**
+- GramJS is NOT loaded in the main page context
+- GramJS only exists inside the Web Worker
+- The main thread only has the connector that communicates with the worker via `postMessage`
+- Cannot access worker's webpack modules from the main page
+
+**Console output:**
+```
+[Disappearing Photos] Searching through 487 modules...
+❌ Could not find GramJS Api module
 ```
 
-### Why Spoilers Work But TTL Doesn't
-
-- `InputMediaUploadedPhoto` **has** a `spoiler` parameter → Spoilers work
-- `InputMediaUploadedPhoto` **does NOT have** a `ttlSeconds` parameter → TTL ignored
-- `InputMediaUploadedDocument` **has both** `spoiler` and `ttlSeconds` parameters
-
-## 🎯 Next Steps to Try
-
-### Option 1: Force Document Path Without File Icon
-- Remove `quick` property entirely
-- Keep `mimeType: 'image/jpeg'`
-- Add `ttlSeconds: 10`
-- **Risk**: Might send as file icon or not display properly
-
-### Option 2: Use GIF Mime Type Hack
-- Set `mimeType: 'image/gif'` (forces document path per line 948)
-- Keep `quick` property for dimensions
-- Add `ttlSeconds: 10`
-- **Risk**: Might display as GIF or not work at all
-
-### Option 3: Check for Special TTL Value
-- Find the actual value of `ONE_TIME_MEDIA_TTL_SECONDS` constant
-- Try using that specific value instead of `10`
-- **Theory**: Maybe there's a special value like `0x7FFFFFFF` for "view once"
-
-### Option 4: Intercept and Modify uploadMedia
-- Hook into the `uploadMedia` function itself
-- Modify the logic to check for `ttlSeconds` before returning `InputMediaUploadedPhoto`
-- **Complexity**: High, requires deeper webpack module manipulation
-
-### Option 5: Accept Limitation
-- Document that Telegram Web's API doesn't properly support disappearing photos
-- Only support disappearing voice messages (which work via `isViewOnceEnabled`)
-- **Note**: This might be the reality - the feature may not be fully implemented in Telegram Web
-
-## 📝 Technical Notes
-
-- Telegram Web version: web.telegram.org/a
-- Main bundle: `main_x.js` (31,836 lines)
-- Key module: 37932 (exports `cl()` → `{getActions, getGlobal, setGlobal}`)
-- Webpack chunk: `window.webpackChunktelegram_t`
-- Extension successfully hooks into Telegram runtime ✅
-- Message sending works programmatically ✅
-- TTL parameter is recognized but not applied ❌
-
-## 🤔 Open Questions
-
-1. Does Telegram's official mobile app send disappearing photos differently?
-2. Is there a different API method specifically for disappearing media?
-3. Could we use `messages.sendMedia` directly instead of `sendMessage` action?
-4. Is there a flag or property we're missing that enables TTL for photos?
-5. Does the `previewBlobUrl` property affect how media is sent?
-
-## 📚 References
-
-- `context/messages.js:919-997` - `uploadMedia` function
-- `context/composer.tsx:1263-1274` - View-once for voice messages
-- `context/messages.js:948-952` - Photo path (no TTL support)
-- `context/messages.js:988-996` - Document path (has TTL support)
-- `context/composer.tsx:2690` - `canSendOneTimeMedia` condition
+intercepting Telegram Web’s worker, patching its source code, and recreating it as a new (blob-based) worker won’t work because Telegram Web’s Content Security Policy blocks creating or replacing workers from blob: URLs, so you can’t patch or re-run the worker code at all, even from a Chrome extension.
