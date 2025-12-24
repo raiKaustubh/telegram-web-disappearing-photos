@@ -1,0 +1,17 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "extensionPath": "/patched-worker.js"
+      }
+    },
+    "condition": {
+      "urlFilter": "*://web.telegram.org/a/6854*.js",
+      "resourceTypes": ["script", "xmlhttprequest", "other"]
+    }
+  }
+]
+

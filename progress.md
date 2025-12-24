@@ -109,3 +109,5 @@ Replace it with a patched version that passes ttlSeconds to InputMediaUploadedPh
 
 ### Attempt 2:
 intercepting Telegram Web’s worker, patching its source code, and recreating it as a new (blob-based) worker won’t work because Telegram Web’s Content Security Policy blocks creating or replacing workers from blob: URLs, so you can’t patch or re-run the worker code at all, even from a Chrome extension.
+
+Instead of trying to modify the worker AFTER it loads (blocked by CSP), you modify it DURING the network request, BEFORE it reaches the browser.

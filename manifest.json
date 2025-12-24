@@ -11,15 +11,24 @@
     {
       "matches": ["*://web.telegram.org/*"],
       "js": ["content.js"],
-      "run_at": "document_idle"
+      "run_at": "document_start"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["inject.js", "inject_v2.js"],
+      "resources": ["patched-worker.js", "inject.js"],
       "matches": ["*://web.telegram.org/*"]
     }
   ],
-  "permissions": [],
-  "host_permissions": ["*://web.telegram.org/*"]
+  "permissions": ["declarativeNetRequest", "declarativeNetRequestWithHostAccess"],
+  "host_permissions": ["*://web.telegram.org/*"],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "telegram_worker_patch",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  }
 }
