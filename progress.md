@@ -106,19 +106,5 @@ Replace it with a patched version that passes ttlSeconds to InputMediaUploadedPh
 - Telegram treats it differently - doesn't display as a proper disappearing photo
 - The UI shows it as a file attachment rather than an inline photo
 
-### Attempt 2: Patch GramJS Constructor in Main Thread
-**Approach:** Search webpack modules in the main page context for `GramJs.Api.InputMediaUploadedPhoto` and wrap its constructor to inject `ttlSeconds`.
-
-**Why it failed:**
-- GramJS is NOT loaded in the main page context
-- GramJS only exists inside the Web Worker
-- The main thread only has the connector that communicates with the worker via `postMessage`
-- Cannot access worker's webpack modules from the main page
-
-**Console output:**
-```
-[Disappearing Photos] Searching through 487 modules...
-❌ Could not find GramJS Api module
-```
 
 intercepting Telegram Web’s worker, patching its source code, and recreating it as a new (blob-based) worker won’t work because Telegram Web’s Content Security Policy blocks creating or replacing workers from blob: URLs, so you can’t patch or re-run the worker code at all, even from a Chrome extension.
