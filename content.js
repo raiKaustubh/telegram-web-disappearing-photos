@@ -1,6 +1,15 @@
-console.log('[Disappearing Photos] Content script loaded - injecting IMMEDIATELY');
+console.log('[Disappearing Photos] Content script loaded');
 
-// Inject SYNCHRONOUSLY before any other scripts run
-const script = document.createElement('script');
-script.src = chrome.runtime.getURL('inject.js');
-(document.head || document.documentElement || document).prepend(script);
+// Inject the cache patching script into page context
+(function() {
+  const script = document.createElement('script');
+  script.src = chrome.runtime.getURL('inject.js');
+  script.onload = function() {
+    console.log('[Disappearing Photos] ✅ Cache patcher script loaded');
+    this.remove();
+  };
+  script.onerror = function() {
+    console.error('[Disappearing Photos] ❌ Failed to load cache patcher');
+  };
+  (document.head || document.documentElement).prepend(script);
+})();

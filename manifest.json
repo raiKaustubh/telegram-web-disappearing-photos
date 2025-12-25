@@ -4,8 +4,7 @@
   "description": "Send disappearing photos on Telegram Web",
   "manifest_version": 3,
   "background": {
-    "service_worker": "background.js",
-    "type": "module"
+    "service_worker": "background.js"
   },
   "content_scripts": [
     {
@@ -16,19 +15,10 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["patched-worker.js", "inject.js"],
+      "resources": ["inject.js"],
       "matches": ["*://web.telegram.org/*"]
     }
   ],
-  "permissions": ["declarativeNetRequest", "declarativeNetRequestWithHostAccess"],
-  "host_permissions": ["*://web.telegram.org/*"],
-  "declarative_net_request": {
-    "rule_resources": [
-      {
-        "id": "telegram_worker_patch",
-        "enabled": true,
-        "path": "rules.json"
-      }
-    ]
-  }
+  "permissions": [],
+  "host_permissions": ["*://web.telegram.org/*"]
 }
