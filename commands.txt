@@ -1,0 +1,35 @@
+const response = await fetch('https://picsum.photos/800/600');
+const blob = await response.blob();
+await window.sendDisappearingPhoto(blob, 10);
+
+localStorage.removeItem('telegram_worker_patched')
+
+
+(async () => {
+    const cache = await caches.open('tt-assets');
+    const requests = await cache.keys();
+    
+    for (const req of requests) {
+      if (req.url.includes('6854') && req.url.includes('.js')) {
+        const response = await cache.match(req);
+        const code = await response.text();
+        
+        // Search for the patched pattern
+        const match = code.match(/new \w+\.InputMediaUploadedPhoto\(\{[^}]+ttlSeconds[^}]*\}\)/);
+        
+        if (match) {
+          console.log('✅ PATCHED CODE FOUND:');
+          console.log(match[0]);
+        } else {
+          console.log('❌ Original code (not patched yet)');
+        }
+        
+        // Show a snippet around the change
+        const idx = code.indexOf('InputMediaUploadedPhoto');
+        if (idx !== -1) {
+          console.log('\nCode snippet:');
+          console.log(code.substring(idx, idx + 200));
+        }
+      }
+    }
+  })();
