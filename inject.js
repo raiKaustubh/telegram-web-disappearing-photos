@@ -42,8 +42,14 @@
       /new (\w+)\.InputMediaUploadedPhoto\(\{file:(\w+),spoiler:(\w+)\}\)/g,
       (match, className, fileVar, spoilerVar) => {
         patchCount++;
-        console.log(`[Cache Patch] Found pattern (match ${patchCount}):`, match);
-        return `new ${className}.InputMediaUploadedPhoto({file:${fileVar},spoiler:${spoilerVar},ttlSeconds:ttlSeconds})`;
+        const originalMatch = match;
+        const patchedCode = `new ${className}.InputMediaUploadedPhoto({file:${fileVar},spoiler:${spoilerVar},ttlSeconds:f})`;
+        
+        console.log(`[Cache Patch] Found pattern (match ${patchCount}):`);
+        console.log(`  ORIGINAL: ${originalMatch}`);
+        console.log(`  PATCHED:  ${patchedCode}`);
+        
+        return patchedCode;
       }
     );
     
