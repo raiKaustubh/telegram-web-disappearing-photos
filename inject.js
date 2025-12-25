@@ -14,10 +14,25 @@
   const MAX_ATTEMPTS = 60; // Try for 30 seconds
   
   /**
+   * Check if the code is already patched
+   */
+  function isAlreadyPatched(code) {
+    // Look for the patched pattern: InputMediaUploadedPhoto with ttlSeconds
+    const patchedPattern = /new \w+\.InputMediaUploadedPhoto\(\{[^}]*ttlSeconds[^}]*\}\)/;
+    return patchedPattern.test(code);
+  }
+  
+  /**
    * Patch the worker code to include ttlSeconds in InputMediaUploadedPhoto
    */
   function patchCode(code) {
     console.log('[Cache Patch] Patching code...');
+    
+    // Check if already patched
+    if (isAlreadyPatched(code)) {
+      console.log('[Cache Patch] ✅ Code is already patched! Skipping...');
+      return code; // Return as-is, no changes needed
+    }
     
     let patchCount = 0;
     
@@ -71,9 +86,15 @@
             const cachedResponse = await cache.match(request);
             
             if (cachedResponse) {
-              // Get the original code
+              // Get the code
               const originalCode = await cachedResponse.text();
-              console.log('[Cache Patch] Original code size:', originalCode.length);
+              console.log('[Cache Patch] Code size:', originalCode.length);
+              
+              // Check if already patched
+              if (isAlreadyPatched(originalCode)) {
+                console.log('[Cache Patch] ✅ Worker is already patched! Nothing to do.');
+                return true; // Success, but no action needed
+              }
               
               // Patch it
               const patchedCode = patchCode(originalCode);
@@ -113,6 +134,14 @@
    * Wait for worker to be cached, then patch it
    */
   async function waitAndPatch() {
+    // Check if we've already successfully patched the worker
+    const PATCH_FLAG = 'telegram_worker_patched';
+    
+    if (localStorage.getItem(PATCH_FLAG) === 'true') {
+      console.log('[Cache Patch] ✅ Worker was already patched in a previous session. Skipping...');
+      return;
+    }
+    
     console.log('[Cache Patch] Waiting for worker to be cached...');
     
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -120,8 +149,33 @@
       
       if (success) {
         console.log('[Cache Patch] 🎉 All done! Worker is patched and ready.');
-        console.log('[Cache Patch] ✅ Worker will be used on next page load.');
-        console.log('[Cache Patch] ⚠️  Please reload the page manually to use the patched worker.');
+        
+        // Verify the patch is in cache and set the flag
+        try {
+          const cacheNames = await caches.keys();
+          for (const cacheName of cacheNames) {
+            const cache = await caches.open(cacheName);
+            const requests = await cache.keys();
+            
+            for (const request of requests) {
+              if (request.url.includes('6854') && request.url.includes('.js')) {
+                const response = await cache.match(request);
+                const code = await response.text();
+                
+                if (isAlreadyPatched(code)) {
+                  // Mark as patched so we don't run this again
+                  localStorage.setItem(PATCH_FLAG, 'true');
+                  console.log('[Cache Patch] ✅ Patch confirmed and saved to localStorage');
+                  console.log('[Cache Patch] ⚠️  Please reload the page MANUALLY to use the patched worker.');
+                  console.log('[Cache Patch] 💡 TIP: To re-patch, run: localStorage.removeItem("telegram_worker_patched")');
+                  return;
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error('[Cache Patch] Error verifying patch:', error);
+        }
         
         return;
       }
