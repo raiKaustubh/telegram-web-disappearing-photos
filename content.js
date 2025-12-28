@@ -36,6 +36,37 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return;
   }
   
+  // Deinitialize extension (remove patch flag)
+  if (request.action === 'deinitializeExtension') {
+    console.log('[Disappearing Photos] Deinitializing extension...');
+    
+    // Inject the deinit helper script
+    const script = document.createElement('script');
+    script.src = chrome.runtime.getURL('deinit-helper.js');
+    script.onload = function() {
+      console.log('[Disappearing Photos] ✅ Deinit helper script loaded');
+      this.remove();
+    };
+    script.onerror = function() {
+      console.error('[Disappearing Photos] ❌ Failed to load deinit helper');
+      sendResponse({ success: false, error: 'Failed to load deinit helper script' });
+    };
+    
+    // Listen for completion message
+    const messageListener = (event) => {
+      if (event.data.type === 'DEINIT_COMPLETE') {
+        window.removeEventListener('message', messageListener);
+        sendResponse({ success: true });
+      }
+    };
+    window.addEventListener('message', messageListener);
+    
+    // Inject the script
+    (document.head || document.documentElement).appendChild(script);
+    
+    return true; // Keep the message channel open for async response
+  }
+  
   // Initialize extension (run cache patcher)
   if (request.action === 'initializeExtension') {
     console.log('[Disappearing Photos] Initializing extension...');

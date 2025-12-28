@@ -1,5 +1,6 @@
 // Get DOM elements
 const initBtn = document.getElementById('initBtn');
+const deinitBtn = document.getElementById('deinitBtn');
 const initStatus = document.getElementById('initStatus');
 const ttlInput = document.getElementById('ttl');
 const photoUrl = document.getElementById('photoUrl');
@@ -9,6 +10,56 @@ const quickOptions = document.querySelectorAll('.quick-option');
 
 // Check initialization status on load
 checkInitStatus();
+
+// Handle deinitialization button
+deinitBtn.addEventListener('click', async () => {
+  try {
+    deinitBtn.disabled = true;
+    initStatus.textContent = 'Deinitializing...';
+    initStatus.className = 'init-status';
+    initStatus.style.display = 'block';
+    
+    // Query the active tab
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    
+    // Check if we're on Telegram Web
+    if (!tab.url || !tab.url.includes('web.telegram.org')) {
+      initStatus.textContent = '❌ Please open Telegram Web (web.telegram.org/a)';
+      initStatus.className = 'init-status';
+      deinitBtn.disabled = false;
+      return;
+    }
+    
+    // Send message to content script to deinitialize
+    chrome.tabs.sendMessage(tab.id, {
+      action: 'deinitializeExtension'
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        initStatus.textContent = '❌ Please reload Telegram Web page and try again';
+        initStatus.className = 'init-status';
+        deinitBtn.disabled = false;
+        console.error('Connection error:', chrome.runtime.lastError);
+        return;
+      }
+      
+      if (response && response.success) {
+        initStatus.textContent = '✅ Extension deinitialized! Reload to re-patch.';
+        initStatus.className = 'init-status';
+        initBtn.disabled = false;
+        localStorage.removeItem('extension_initialized');
+      } else {
+        initStatus.textContent = '❌ ' + (response?.error || 'Deinitialization failed');
+        initStatus.className = 'init-status';
+      }
+      deinitBtn.disabled = false;
+    });
+    
+  } catch (error) {
+    initStatus.textContent = '❌ Error: ' + error.message;
+    initStatus.className = 'init-status';
+    deinitBtn.disabled = false;
+  }
+});
 
 // Handle initialization button
 initBtn.addEventListener('click', async () => {
@@ -22,8 +73,8 @@ initBtn.addEventListener('click', async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     
     // Check if we're on Telegram Web
-    if (!tab.url.includes('web.telegram.org')) {
-      initStatus.textContent = '❌ Please open Telegram Web first!';
+    if (!tab.url || !tab.url.includes('web.telegram.org')) {
+      initStatus.textContent = '❌ Please open Telegram Web (web.telegram.org/a)';
       initStatus.className = 'init-status';
       initBtn.disabled = false;
       return;
@@ -34,9 +85,10 @@ initBtn.addEventListener('click', async () => {
       action: 'initializeExtension'
     }, (response) => {
       if (chrome.runtime.lastError) {
-        initStatus.textContent = '❌ Error: ' + chrome.runtime.lastError.message;
+        initStatus.textContent = '❌ Please reload Telegram Web page and try again';
         initStatus.className = 'init-status';
         initBtn.disabled = false;
+        console.error('Connection error:', chrome.runtime.lastError);
         return;
       }
       
@@ -63,9 +115,11 @@ async function checkInitStatus() {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     
-    if (!tab.url.includes('web.telegram.org')) {
-      initStatus.textContent = 'Open Telegram Web to initialize';
+    if (!tab.url || !tab.url.includes('web.telegram.org')) {
+      initStatus.textContent = '⚠️ Open Telegram Web (web.telegram.org/a)';
       initStatus.style.display = 'block';
+      initBtn.disabled = true;
+      deinitBtn.disabled = true;
       return;
     }
     
@@ -74,8 +128,11 @@ async function checkInitStatus() {
       action: 'checkInitStatus'
     }, (response) => {
       if (chrome.runtime.lastError) {
-        initStatus.textContent = 'Not initialized';
+        // Content script not loaded - page needs reload
+        initStatus.textContent = '⚠️ Please reload Telegram Web page first';
         initStatus.style.display = 'block';
+        initBtn.disabled = true;
+        deinitBtn.disabled = true;
         return;
       }
       
@@ -84,13 +141,18 @@ async function checkInitStatus() {
         initStatus.className = 'init-status initialized';
         initStatus.style.display = 'block';
         initBtn.disabled = true;
+        deinitBtn.disabled = false;
       } else {
         initStatus.textContent = 'Click to initialize extension';
         initStatus.style.display = 'block';
+        initBtn.disabled = false;
+        deinitBtn.disabled = true;
       }
     });
   } catch (error) {
     console.error('Error checking init status:', error);
+    initStatus.textContent = '❌ Error checking status';
+    initStatus.style.display = 'block';
   }
 }
 
@@ -139,8 +201,8 @@ sendBtn.addEventListener('click', async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     
     // Check if we're on Telegram Web
-    if (!tab.url.includes('web.telegram.org')) {
-      showStatus('Please open Telegram Web first!', 'error');
+    if (!tab.url || !tab.url.includes('web.telegram.org')) {
+      showStatus('Please open Telegram Web (web.telegram.org/a)', 'error');
       sendBtn.disabled = false;
       return;
     }
@@ -152,8 +214,9 @@ sendBtn.addEventListener('click', async () => {
       imageUrl: url
     }, (response) => {
       if (chrome.runtime.lastError) {
-        showStatus('Error: ' + chrome.runtime.lastError.message, 'error');
+        showStatus('Please reload Telegram Web page and try again', 'error');
         sendBtn.disabled = false;
+        console.error('Connection error:', chrome.runtime.lastError);
         return;
       }
       

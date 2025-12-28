@@ -19,7 +19,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["inject.js", "cache-patcher.js", "send-helper.js"],
+      "resources": ["inject.js", "cache-patcher.js", "send-helper.js", "deinit-helper.js"],
       "matches": ["*://web.telegram.org/*"]
     }
   ],
