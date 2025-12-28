@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Telegram Disappearing Photos</title>
+  <style>
+    body {
+      width: 320px;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      margin: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .container {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+    
+    h1 {
+      margin: 0 0 10px 0;
+      font-size: 20px;
+      font-weight: 600;
+    }
+    
+    .subtitle {
+      font-size: 13px;
+      opacity: 0.9;
+      margin-bottom: 20px;
+    }
+    
+    .section {
+      margin-bottom: 20px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .section:last-of-type {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+    
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      opacity: 0.95;
+    }
+    
+    .input-group {
+      margin-bottom: 15px;
+    }
+    
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 6px;
+      opacity: 0.95;
+    }
+    
+    input[type="number"] {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 8px;
+      font-size: 14px;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      box-sizing: border-box;
+      transition: all 0.3s ease;
+    }
+    
+    input[type="number"]:focus {
+      outline: none;
+      border-color: rgba(255, 255, 255, 0.6);
+      background: rgba(255, 255, 255, 0.25);
+    }
+    
+    input[type="number"]::placeholder {
+      color: rgba(255, 255, 255, 0.6);
+    }
+    
+    .file-input-wrapper {
+      position: relative;
+      overflow: hidden;
+      display: inline-block;
+      width: 100%;
+      margin-bottom: 15px;
+    }
+    
+    .file-input-wrapper input[type=file] {
+      position: absolute;
+      left: -9999px;
+    }
+    
+    .file-input-label {
+      display: block;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.2);
+      border: 2px dashed rgba(255, 255, 255, 0.4);
+      border-radius: 8px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 14px;
+    }
+    
+    .file-input-label:hover {
+      background: rgba(255, 255, 255, 0.3);
+      border-color: rgba(255, 255, 255, 0.6);
+    }
+    
+    .file-name {
+      font-size: 12px;
+      margin-top: 5px;
+      opacity: 0.8;
+      text-align: center;
+      word-break: break-all;
+    }
+    
+    button {
+      width: 100%;
+      padding: 14px;
+      background: white;
+      color: #667eea;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+    }
+    
+    button:active:not(:disabled) {
+      transform: translateY(0);
+    }
+    
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    
+    button.secondary {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: 2px solid rgba(255, 255, 255, 0.4);
+    }
+    
+    button.secondary:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.3);
+      border-color: rgba(255, 255, 255, 0.6);
+    }
+    
+    .status {
+      margin-top: 15px;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      text-align: center;
+      display: none;
+    }
+    
+    .status.success {
+      background: rgba(76, 175, 80, 0.3);
+      border: 1px solid rgba(76, 175, 80, 0.5);
+      display: block;
+    }
+    
+    .status.error {
+      background: rgba(244, 67, 54, 0.3);
+      border: 1px solid rgba(244, 67, 54, 0.5);
+      display: block;
+    }
+    
+    .status.info {
+      background: rgba(33, 150, 243, 0.3);
+      border: 1px solid rgba(33, 150, 243, 0.5);
+      display: block;
+    }
+    
+    .quick-options {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 15px;
+    }
+    
+    .quick-option {
+      flex: 1;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.2);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+    
+    .quick-option:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+    
+    .quick-option.active {
+      background: white;
+      color: #667eea;
+      border-color: white;
+    }
+    
+    .init-status {
+      font-size: 12px;
+      margin-top: 8px;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 6px;
+      text-align: center;
+    }
+    
+    .init-status.initialized {
+      background: rgba(76, 175, 80, 0.3);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📸 Disappearing Photos</h1>
+    <p class="subtitle">Send self-destructing photos on Telegram Web</p>
+    
+    <!-- Initialization Section -->
+    <div class="section">
+      <div class="section-title">🔧 Setup</div>
+      <button id="initBtn" class="secondary">Initialize Extension</button>
+      <div class="init-status" id="initStatus"></div>
+    </div>
+    
+    <!-- Send Photo Section -->
+    <div class="section">
+      <div class="section-title">📤 Send Photo</div>
+      
+      <div class="input-group">
+        <label for="ttl">Time to Live (seconds)</label>
+        <div class="quick-options">
+          <div class="quick-option" data-ttl="5">5s</div>
+          <div class="quick-option active" data-ttl="10">10s</div>
+          <div class="quick-option" data-ttl="30">30s</div>
+          <div class="quick-option" data-ttl="60">60s</div>
+        </div>
+        <input type="number" id="ttl" min="1" max="60" value="10" placeholder="Enter seconds (1-60)">
+      </div>
+      
+      <div class="input-group">
+        <label>Photo URL</label>
+        <input type="text" id="photoUrl" placeholder="https://example.com/photo.jpg" style="width: 100%; padding: 10px; border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 8px; font-size: 14px; background: rgba(255, 255, 255, 0.2); color: white; box-sizing: border-box;">
+      </div>
+      
+      <button id="sendBtn" disabled>Send Disappearing Photo</button>
+      
+      <div class="status" id="status"></div>
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>

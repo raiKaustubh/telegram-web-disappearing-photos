@@ -3,6 +3,10 @@
   "version": "1.0",
   "description": "Send disappearing photos on Telegram Web",
   "manifest_version": 3,
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Send Disappearing Photo"
+  },
   "background": {
     "service_worker": "background.js"
   },
@@ -15,10 +19,10 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["inject.js"],
+      "resources": ["inject.js", "cache-patcher.js", "send-helper.js"],
       "matches": ["*://web.telegram.org/*"]
     }
   ],
-  "permissions": [],
+  "permissions": ["activeTab"],
   "host_permissions": ["*://web.telegram.org/*"]
 }
