@@ -207,7 +207,3 @@ Contributions, issues, and feature requests are welcome!
 **Cache patch not persisting:**
 - Don't clear browser cache while using the extension
 - Reinitialize if you clear cache or restart browser
-
----
-
-Made with ❤️ for the Telegram community
