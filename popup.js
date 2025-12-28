@@ -11,6 +11,11 @@ const quickOptions = document.querySelectorAll('.quick-option');
 // Check initialization status on load
 checkInitStatus();
 
+// Auto-refresh status every 2 seconds while popup is open
+setInterval(() => {
+  checkInitStatus();
+}, 2000);
+
 // Handle deinitialization button
 deinitBtn.addEventListener('click', async () => {
   try {
