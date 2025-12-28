@@ -1,0 +1,14 @@
+# Telegram source repositories
+telegram-tt/
+Telegram-iOS/
+
+# Python virtual environment
+venv/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
