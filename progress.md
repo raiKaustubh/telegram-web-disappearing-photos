@@ -63,7 +63,6 @@ Telegram supports two types of disappearing photos:
 - Auto-deletes after X seconds while viewing
 - Valid range: 1-60 seconds (from iOS source code)
 
-
 Main Thread:                          Worker Thread:
 -----------                           --------------
 1. actions.sendMessage()              
@@ -84,33 +83,55 @@ Main Thread:                          Worker Thread:
                                        7. Creates InputMediaUploadedPhoto
                                           WITHOUT ttlSeconds (line 949-952)
 
-Your Solutions:
-Solution 1: Work with shouldSendAsFIle: true
-
-Solution 2: Intercept the GramJS Constructor in the Worker 
-Since the worker loads GramJS, you can intercept the InputMediaUploadedPhoto constructor BEFORE the worker uses it:
-Approach:
-Inject a script that runs BEFORE the worker loads
-Wrap GramJs.InputMediaUploadedPhoto constructor to always add ttlSeconds from a hidden property
-When the worker creates the object at line 949, your wrapper adds ttlSeconds
-
-Solution 2: Monkey-patch the uploadMedia function in the Worker
-Find the webpack module containing uploadMedia in the worker context
-
-Solution 3: Get the worker code, create a new file with the new code and create a new blob URL and make telegram use it
 
 ## Attempted Solutions and Why They Failed
 
-### Attempt 1: Force Document Path with `shouldSendAsFile: true`
-**Approach:** Set `shouldSendAsFile: true` in the attachment to force the code to take the document upload path (line 988) instead of the photo path (line 949), since the document path DOES pass `ttlSeconds`.
+### Approach 1: Work with shouldSendAsFIle: true
+- Work with shouldSendAsFIle: true
 
-**Why it failed:** 
-- The photo was sent as a document/file, not as a photo
-- Telegram treats it differently - doesn't display as a proper disappearing photo
-- The UI shows it as a file attachment rather than an inline photo
+**Why it failed:**  
+- photo was sent as a document/file, telegram treats it differently
 
+---
 
-### Attempt 3:
-intercepting Telegram Web’s worker, patching its source code, and recreating it as a new (blob-based) worker won’t work because Telegram Web’s Content Security Policy blocks creating or replacing workers from blob: URLs, so you can’t patch or re-run the worker code at all, even from a Chrome extension.
+### Approach 2: Intercept or Patch Worker Code at Runtime
+**Details:**  
+- Try to inject a script or code to alter the worker’s behavior at runtime, for example:
+  - Intercept or monkey-patch the `InputMediaUploadedPhoto` constructor inside the worker (before it’s first used) 
+      OR
+  - Monkey-patch the `uploadMedia` function in the worker
+- This would require code execution inside the worker’s scope, either before or as soon as the worker loads.
+ 
+**Why it failed:**  
+- Web workers isolation: workers are sandboxed and isolated from the main page context; scripts injected by extensions cannot access or modify the global scope inside a running worker
 
-Instead of trying to modify the worker AFTER it loads (blocked by CSP), you modify it DURING the network request, BEFORE it reaches the browser.
+---
+
+### Approach 3: Patch and Replace the Worker via Blob and make the main thread call it
+
+**Why it failed:**  
+- Telegram Web’s Content Security Policy (CSP) blocks creating or replacing workers from `blob:` URLs for security reasons  
+
+---
+
+> **Note:**  
+> The only reliable way is to modify the worker code _before_ the browser loads it, i.e., by patching it in the cache or network response, so Telegram loads your version naturally.
+
+---
+
+### Approach 4: Patch the Worker Code in the Browser Cache (What Actually Worked)
+
+**Details:**  
+- The extension injects a script into the page (`content.js` loads `inject.js`) as soon as Telegram Web is open.
+- This script searches the browser's Cache API for the Telegram worker file (the JavaScript file that runs in the worker thread).
+- If the worker file is present in cache, it reads the JS source code, detects if it’s already patched, and if not:
+  - Uses a regex to find where `InputMediaUploadedPhoto` is created.
+  - Modifies that line to include the `ttlSeconds` property—so, for example, it changes `new GramJs.InputMediaUploadedPhoto({...})` to also include `ttlSeconds`.
+  - Saves the patched worker JS code back into the cache, replacing the old version.
+- When Telegram Web next creates the worker, it requests the same worker URL as usual—but the browser now serves the patched version from the cache.
+- **Result:** The patched worker executes as if it was the original one from Telegram, but now uploading disappearing photos is possible because `ttlSeconds` gets passed in the right place.
+
+**Why it worked:**  
+- No need to bypass CSP; the worker URL and app logic stay the same, so Telegram’s main thread is unaware anything changed.
+- The patch is performed before the worker is launched, so the modified logic runs as if it was original.
+- Leverages browser extension/content script capabilities and the cache, working around both CSP and worker isolation.
