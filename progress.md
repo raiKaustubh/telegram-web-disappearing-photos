@@ -85,7 +85,9 @@ Main Thread:                          Worker Thread:
                                           WITHOUT ttlSeconds (line 949-952)
 
 Your Solutions:
-Solution 1: Intercept the GramJS Constructor in the Worker 
+Solution 1: Work with shouldSendAsFIle: true
+
+Solution 2: Intercept the GramJS Constructor in the Worker 
 Since the worker loads GramJS, you can intercept the InputMediaUploadedPhoto constructor BEFORE the worker uses it:
 Approach:
 Inject a script that runs BEFORE the worker loads
@@ -94,7 +96,8 @@ When the worker creates the object at line 949, your wrapper adds ttlSeconds
 
 Solution 2: Monkey-patch the uploadMedia function in the Worker
 Find the webpack module containing uploadMedia in the worker context
-Replace it with a patched version that passes ttlSeconds to InputMediaUploadedPhoto
+
+Solution 3: Get the worker code, create a new file with the new code and create a new blob URL and make telegram use it
 
 ## Attempted Solutions and Why They Failed
 
@@ -107,7 +110,7 @@ Replace it with a patched version that passes ttlSeconds to InputMediaUploadedPh
 - The UI shows it as a file attachment rather than an inline photo
 
 
-### Attempt 2:
+### Attempt 3:
 intercepting Telegram Web’s worker, patching its source code, and recreating it as a new (blob-based) worker won’t work because Telegram Web’s Content Security Policy blocks creating or replacing workers from blob: URLs, so you can’t patch or re-run the worker code at all, even from a Chrome extension.
 
 Instead of trying to modify the worker AFTER it loads (blocked by CSP), you modify it DURING the network request, BEFORE it reaches the browser.
