@@ -22,7 +22,6 @@ A Chrome extension that enables sending disappearing (self-destructing) photos o
 
 ## Table of Contents
 
-- [Disclaimer](#disclaimer)
 - [Features](#features)
 - [Installation](#installation)
 - [Usage](#usage)
