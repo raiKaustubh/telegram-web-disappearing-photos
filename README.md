@@ -10,6 +10,8 @@ A Chrome extension that enables sending disappearing (self-destructing) photos o
 > 3. Must work on `web.telegram.org/a` (version A), not version K or others
 > 4. Must send **photos** specifically (not videos, gifs, docs, or other file types)
 > 5. Must be able to send photos **programmatically** (not require manual UI interaction)
+>
+> The exact assignment submission code can be found in the [`assignment`](../../tree/assignment) branch. The main branch includes an additional UI component (Extension Popup) for ease of use, but it internally uses the same [programmatic JavaScript API](#via-javascript-api) that fulfills the assignment requirements.
 
 ## Table of Contents
 
@@ -24,14 +26,11 @@ A Chrome extension that enables sending disappearing (self-destructing) photos o
   - [Technical Implementation](#technical-implementation)
   - [Key Innovation](#key-innovation)
 - [File Structure](#file-structure)
-- [Requirements](#requirements)
-- [Limitations](#limitations)
 - [Development](#development)
   - [Debugging](#debugging)
   - [Reset Extension State](#reset-extension-state)
 - [Privacy & Security](#privacy--security)
 - [License](#license)
-- [Contributing](#contributing)
 - [Tips](#tips)
 - [Troubleshooting](#troubleshooting)
 
@@ -43,7 +42,7 @@ A Chrome extension that enables sending disappearing (self-destructing) photos o
 > **Important Notes:**
 > - This extension is not affiliated with, endorsed by, or officially supported by Telegram
 > - This project modifies Telegram Web's behavior in ways not officially documented
-> - For educational and personal use only
+> - For educational purposes only
 
 ## Features
 
@@ -172,18 +171,6 @@ telegram-web-disappearing-photos/
 └── README.md              # This file
 ```
 
-## Requirements
-
-- Chrome/Chromium-based browser (Chrome, Edge, Brave, etc.)
-- Telegram Web A version ([web.telegram.org/a](https://web.telegram.org/a))
-- Active Telegram account with an open chat
-
-## Limitations
-
-- Only works on Telegram Web A (`web.telegram.org/a`), not version K
-- Requires manual initialization after each browser restart
-- Cache patch persists until manually deinitialized or cache is cleared
-- Only supports photo files (not videos, GIFs, or documents)
 
 ## Development
 
@@ -217,16 +204,10 @@ localStorage.removeItem('telegram_worker_patched');
 
 ## License
 
-This project is provided as-is for educational and personal use.
-
-## Contributing
-
-Contributions, issues, and feature requests are welcome!
+This project is provided as-is for educational purposes only.
 
 ## Tips
 
-- Use quick TTL buttons (5s, 10s, 30s, 60s) for faster selection
-- Test with random images from `https://picsum.photos/800/600`
 - Check browser console for detailed logs if something goes wrong
 - Reinitialize after clearing browser cache
 
