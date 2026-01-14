@@ -1,4 +1,5 @@
 # Telegram Disappearing Photos Extension
+A Chrome extension that enables sending disappearing (self-destructing) photos on Telegram Web, a feature normally only available on mobile apps.
 > [!CAUTION]
 > This is an educational project demonstrating Chrome extension development and reverse engineering techniques.
 >
@@ -7,7 +8,6 @@
 > - This project modifies Telegram Web's behavior in ways not officially documented
 > - For educational purposes only
 
-A Chrome extension that enables sending disappearing (self-destructing) photos on Telegram Web, a feature normally only available on mobile apps.
 
 > [!NOTE]
 > This project was developed as part of an assignment with the following constraints:
