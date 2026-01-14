@@ -17,16 +17,13 @@ A Chrome extension that enables sending disappearing (self-destructing) photos o
 > 3. Must work on `web.telegram.org/a` (version A), not version K or others
 > 4. Must send **photos** specifically (not videos, gifs, docs, or other file types)
 > 5. Must be able to send photos **programmatically** (not require manual UI interaction)
->
-> The exact assignment submission code can be found in the [`assignment`](../../tree/assignment) branch. The main branch includes an additional UI component (Extension Popup) for ease of use, but it internally uses the same [programmatic JavaScript API](#via-javascript-api) that fulfills the assignment requirements.
+
 
 ## Table of Contents
 
-- [Disclaimer](#disclaimer)
 - [Features](#features)
 - [Installation](#installation)
 - [Usage](#usage)
-  - [Via Extension Popup](#via-extension-popup)
   - [Via JavaScript API](#via-javascript-api)
 - [How It Works](#how-it-works)
   - [Architecture Overview](#architecture-overview)
@@ -50,10 +47,10 @@ A Chrome extension that enables sending disappearing (self-destructing) photos o
 - **Programmatic API**: Access via JavaScript API for automation
 
 ### Technical Features
-- **Cache Patching**: Automatically patches Telegram's service worker to enable disappearing photo support
-- **Webpack Module Integration**: Seamlessly integrates with Telegram's internal state management
-- **Non-invasive**: No bundled libraries or external dependencies
-- **Clean Architecture**: Modular design with separate concerns for patching, sending, and UI
+- **Automatic Cache Patching**: Patches Telegram's worker file in the browser cache on page load
+- **Webpack Module Integration**: Discovers and integrates with Telegram's internal state management
+- **Zero Dependencies**: No bundled libraries or external dependencies
+- **Lightweight**: Minimal codebase focused on core functionality
 
 ## Installation
 
@@ -65,33 +62,9 @@ A Chrome extension that enables sending disappearing (self-destructing) photos o
 
 ## Usage
 
-### Via Extension Popup
-
-1. **Initialize the Extension**
-   - Click the extension icon in your browser toolbar
-   - Click "Initialize Extension" button
-   - Reload the Telegram Web page when prompted
-   - The extension will patch the service worker cache to enable disappearing photos
-
-2. **Send a Disappearing Photo**
-   - Open any chat on Telegram Web
-   - Click the extension icon
-   - Enter a photo URL (e.g., `https://picsum.photos/800/600`)
-   - Select a TTL (Time To Live) using quick options or enter custom seconds (1-60)
-   - Click "Send Disappearing Photo"
-
-3. **Deinitialize (Optional)**
-   - Click "Deinitialize Extension" to remove the cache patch
-   - Reload the page to restore original functionality
-
 ### Via JavaScript API
 
-Once initialized, you can programmatically send disappearing photos using the browser console:
-
 ```javascript
-// Send a disappearing photo with 10 second TTL
-await sendDisappearingPhoto(blob, 10);
-
 // Example: Fetch and send an image
 const response = await fetch('https://picsum.photos/800/600');
 const blob = await response.blob();
@@ -102,32 +75,21 @@ await sendDisappearingPhoto(blob, 30);
 
 ### Architecture Overview
 
-The extension consists of several components working together:
+The extension consists of three core components working together:
 
 1. **Content Script** (`content.js`)
-   - Injects scripts into the Telegram Web page context
-   - Bridges communication between popup and page context
-   - Manages initialization and deinitialization
+   - Injects the main script into the Telegram Web page context
+   - Acts as a bridge between the extension and the page's JavaScript environment
+   - Loads on every Telegram Web page load
 
-2. **Telegram Integration** (`inject.js`)
-   - Accesses Telegram's webpack modules
-   - Extracts internal actions and state management functions
-   - Exposes `sendDisappearingPhoto()` API
+2. **Main Integration Script** (`inject.js`)
+   - **Cache Patcher**: Automatically patches the cached worker file to include `ttlSeconds` support
+   - **Webpack Module Discovery**: Searches through Telegram's webpack modules to find internal state management
+   - **Action Extraction**: Extracts `getActions()`, `getGlobal()`, and `setGlobal()` functions from Telegram's internals
+   - **API Exposure**: Exposes the `sendDisappearingPhoto()` function globally for programmatic use
 
-3. **Cache Patcher** (`cache-patcher.js`)
-   - Patches the cached service worker code
-   - Adds `ttlSeconds` parameter to `InputMediaUploadedPhoto` API calls
-   - Persists patch across sessions using localStorage
-
-4. **Send Helper** (`send-helper.js`)
-   - Handles photo sending requests from the popup
-   - Converts URLs to blobs
-   - Calls the `sendDisappearingPhoto()` function
-
-5. **Popup UI** (`popup.html`, `popup.js`)
-   - User-friendly interface for initialization and sending
-   - Status monitoring and feedback
-   - Quick TTL selection options
+3. **Background Service Worker** (`background.js`)
+   - Minimal background script for extension lifecycle management
 
 ### Technical Implementation
 
@@ -157,13 +119,8 @@ This enables the `ttlSeconds` parameter to be passed through to Telegram's API, 
 ```
 telegram-web-disappearing-photos/
 ├── manifest.json           # Extension configuration
-├── popup.html             # Extension popup UI
-├── popup.js               # Popup logic and event handlers
-├── content.js             # Content script (bridge)
-├── inject.js              # Telegram integration (page context)
-├── cache-patcher.js       # Service worker cache patcher
-├── send-helper.js         # Photo sending helper
-├── deinit-helper.js       # Deinitialization helper
+├── content.js             # Content script (injection bridge)
+├── inject.js              # Main script (cache patcher + Telegram integration)
 ├── background.js          # Background service worker
 └── README.md              # This file
 ```
@@ -212,19 +169,15 @@ This project is provided as-is for educational purposes only.
 
 **Extension not working after installation:**
 - Make sure you're on `web.telegram.org/a` (not `/k`)
-- Click "Initialize Extension" and reload the page
+- Reload the Telegram Web page after installing the extension
 - Check browser console for error messages
 
-**"Please reload Telegram Web page" error:**
-- Hard refresh the page (Ctrl+Shift+R or Cmd+Shift+R)
-- Reinitialize the extension
-
 **Photos not sending:**
-- Ensure you have a chat open
-- Verify the extension is initialized (check status in popup)
+- Ensure you have a chat open on Telegram Web
 - Check that the image URL is accessible
+- Verify the console shows `[Disappearing Photos] ✅ Ready!` message
 - Try a different image URL
 
 **Cache patch not persisting:**
 - Don't clear browser cache while using the extension
-- Reinitialize if you clear cache or restart browser
+- If cache is cleared, reload Telegram Web to re-patch automatically
