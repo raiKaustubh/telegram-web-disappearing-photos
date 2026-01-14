@@ -1,17 +1,42 @@
-# 📸 Telegram Disappearing Photos Extension
+# Telegram Disappearing Photos Extension
 
 A Chrome extension that enables sending disappearing (self-destructing) photos on Telegram Web, a feature normally only available on mobile apps.
 
-## ⚠️ Disclaimer
+## Table of Contents
 
-This is an educational project demonstrating Chrome extension development and reverse engineering techniques. Use at your own risk.
+- [Disclaimer](#disclaimer)
+- [Features](#features)
+- [Installation](#installation)
+- [Usage](#usage)
+  - [Via Extension Popup](#via-extension-popup)
+  - [Via JavaScript API](#via-javascript-api)
+- [How It Works](#how-it-works)
+  - [Architecture Overview](#architecture-overview)
+  - [Technical Implementation](#technical-implementation)
+  - [Key Innovation](#key-innovation)
+- [File Structure](#file-structure)
+- [Requirements](#requirements)
+- [Limitations](#limitations)
+- [Development](#development)
+  - [Debugging](#debugging)
+  - [Reset Extension State](#reset-extension-state)
+- [Privacy & Security](#privacy--security)
+- [License](#license)
+- [Contributing](#contributing)
+- [Tips](#tips)
+- [Troubleshooting](#troubleshooting)
 
-**Important Notes:**
-- This extension is not affiliated with, endorsed by, or officially supported by Telegram
-- This project modifies Telegram Web's behavior in ways not officially documented
-- For educational and personal use only
+## Disclaimer
 
-## ✨ Features
+> [!WARNING]
+> This is an educational project demonstrating Chrome extension development and reverse engineering techniques.
+>
+> **Important Notes:**
+> - This extension is not affiliated with, endorsed by, or officially supported by Telegram
+> - This project modifies Telegram Web's behavior in ways not officially documented
+> - For educational and personal use only
+
+## Features
 
 ### Core Functionality
 - **Send Disappearing Photos**: Send self-destructing photos that automatically delete after being viewed
@@ -25,7 +50,7 @@ This is an educational project demonstrating Chrome extension development and re
 - **Non-invasive**: No bundled libraries or external dependencies
 - **Clean Architecture**: Modular design with separate concerns for patching, sending, and UI
 
-## 🚀 Installation
+## Installation
 
 1. Clone or download this repository
 2. Open Chrome and navigate to `chrome://extensions/`
@@ -33,7 +58,7 @@ This is an educational project demonstrating Chrome extension development and re
 4. Click "Load unpacked" and select the extension directory
 5. Navigate to [web.telegram.org/a](https://web.telegram.org/a)
 
-## 📖 Usage
+## Usage
 
 ### Via Extension Popup
 
@@ -68,7 +93,7 @@ const blob = await response.blob();
 await sendDisappearingPhoto(blob, 30);
 ```
 
-## 🔧 How It Works
+## How It Works
 
 ### Architecture Overview
 
@@ -122,7 +147,7 @@ new InputMediaUploadedPhoto({file:_, spoiler:l, ttlSeconds:f})
 
 This enables the `ttlSeconds` parameter to be passed through to Telegram's API, enabling disappearing photos.
 
-## 📁 File Structure
+## File Structure
 
 ```
 telegram-web-disappearing-photos/
@@ -138,20 +163,20 @@ telegram-web-disappearing-photos/
 └── README.md              # This file
 ```
 
-## 🎯 Requirements
+## Requirements
 
 - Chrome/Chromium-based browser (Chrome, Edge, Brave, etc.)
 - Telegram Web A version ([web.telegram.org/a](https://web.telegram.org/a))
 - Active Telegram account with an open chat
 
-## ⚠️ Limitations
+## Limitations
 
 - Only works on Telegram Web A (`web.telegram.org/a`), not version K
 - Requires manual initialization after each browser restart
 - Cache patch persists until manually deinitialized or cache is cleared
 - Only supports photo files (not videos, GIFs, or documents)
 
-## 🛠️ Development
+## Development
 
 ### Debugging
 
@@ -174,29 +199,29 @@ localStorage.removeItem('telegram_worker_patched');
 // Then reload the page and reinitialize
 ```
 
-## 🔒 Privacy & Security
+## Privacy & Security
 
 - **No Data Collection**: The extension does not collect or transmit any user data
 - **Local Processing**: All operations happen locally in your browser
 - **No External Dependencies**: No third-party libraries or external API calls
 - **Open Source**: All code is visible and auditable
 
-## 📝 License
+## License
 
 This project is provided as-is for educational and personal use.
 
-## 🤝 Contributing
+## Contributing
 
 Contributions, issues, and feature requests are welcome!
 
-## 💡 Tips
+## Tips
 
 - Use quick TTL buttons (5s, 10s, 30s, 60s) for faster selection
 - Test with random images from `https://picsum.photos/800/600`
 - Check browser console for detailed logs if something goes wrong
 - Reinitialize after clearing browser cache
 
-## ❓ Troubleshooting
+## Troubleshooting
 
 **Extension not working after installation:**
 - Make sure you're on `web.telegram.org/a` (not `/k`)
